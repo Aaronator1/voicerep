@@ -1,0 +1,11 @@
+/* VoiceRep – Global reset */
+body {
+  margin: 0;
+  background: #0d0d0d;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+#root {
+  min-height: 100dvh;
+}

@@ -1,0 +1,222 @@
+/* ── VoiceRep – Core Loop UI ── */
+
+/* Reset & base */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+.app {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-height: 100dvh;
+  padding: 24px 16px 48px;
+  background: #0d0d0d;
+  color: #eee;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+/* ── Header ── */
+.header {
+  margin-bottom: 32px;
+}
+
+.logo {
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: #fff;
+}
+
+/* ── Prompt display ── */
+.prompt-container {
+  width: 100%;
+  max-width: 640px;
+  margin-bottom: 40px;
+}
+
+.prompt-text {
+  font-size: 26px;
+  line-height: 1.5;
+  text-align: center;
+  padding: 32px 24px;
+  background: #1a1a1a;
+  border-radius: 16px;
+  color: #f0f0f0;
+  /* readable at arm's length on phone */
+}
+
+.prompt-nav {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+  margin-top: 16px;
+}
+
+.btn-nav {
+  font-size: 14px;
+  font-weight: 500;
+  color: #888;
+  background: none;
+  border: 1px solid #333;
+  border-radius: 8px;
+  padding: 8px 18px;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+}
+
+.btn-nav:hover:not(:disabled) {
+  color: #ccc;
+  border-color: #555;
+}
+
+.btn-nav:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
+.prompt-counter {
+  font-size: 13px;
+  color: #555;
+}
+
+/* ── Record button ── */
+.record-area {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-bottom: 40px;
+}
+
+.btn-record {
+  width: 140px;
+  height: 140px;
+  border-radius: 50%;
+  border: 4px solid #e53935;
+  background: transparent;
+  color: #e53935;
+  font-size: 20px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s, transform 0.1s;
+  /* min 44pt tap target — this exceeds it */
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.btn-record:hover {
+  background: rgba(229, 57, 53, 0.08);
+}
+
+.btn-record:active {
+  transform: scale(0.95);
+}
+
+.btn-record.recording {
+  background: #e53935;
+  color: #fff;
+  animation: pulse-ring 1.2s ease-in-out infinite;
+}
+
+@keyframes pulse-ring {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(229, 57, 53, 0.4); }
+  50% { box-shadow: 0 0 0 20px rgba(229, 57, 53, 0); }
+}
+
+.recording-indicator {
+  margin-top: 14px;
+  font-size: 14px;
+  color: #e53935;
+  font-weight: 500;
+  animation: blink 1s step-end infinite;
+}
+
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+
+/* ── Error ── */
+.error {
+  color: #ff6b6b;
+  font-size: 14px;
+  text-align: center;
+  max-width: 480px;
+  margin-bottom: 24px;
+}
+
+/* ── Takes list ── */
+.takes {
+  width: 100%;
+  max-width: 640px;
+}
+
+.takes-heading {
+  font-size: 15px;
+  font-weight: 600;
+  color: #888;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-bottom: 12px;
+}
+
+.take-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.take-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 18px;
+  background: #1a1a1a;
+  border-radius: 12px;
+}
+
+.take-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.take-num {
+  font-size: 16px;
+  font-weight: 600;
+  color: #eee;
+}
+
+.take-meta {
+  font-size: 13px;
+  color: #666;
+}
+
+.btn-play {
+  font-size: 14px;
+  font-weight: 600;
+  color: #4caf50;
+  background: rgba(76, 175, 80, 0.1);
+  border: 1px solid rgba(76, 175, 80, 0.25);
+  border-radius: 8px;
+  padding: 8px 20px;
+  cursor: pointer;
+  transition: background 0.15s;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  min-height: 44px;
+}
+
+.btn-play:hover:not(:disabled) {
+  background: rgba(76, 175, 80, 0.18);
+}
+
+.btn-play:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
