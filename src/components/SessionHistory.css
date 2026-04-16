@@ -1,0 +1,208 @@
+/* ── Session History Panel ── */
+
+.history-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.85);
+  z-index: 100;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding: 24px 16px;
+  overflow-y: auto;
+}
+
+.history-panel {
+  width: 100%;
+  max-width: 640px;
+  background: #1a1a1a;
+  border-radius: 16px;
+  padding: 24px;
+  margin-top: 20px;
+}
+
+.history-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+}
+
+.history-header h2 {
+  font-size: 18px;
+  font-weight: 600;
+  color: #eee;
+  margin: 0;
+}
+
+.btn-close {
+  font-size: 14px;
+  font-weight: 500;
+  color: #888;
+  background: none;
+  border: 1px solid #333;
+  border-radius: 8px;
+  padding: 8px 16px;
+  cursor: pointer;
+  min-height: 44px;
+}
+
+.btn-close:hover {
+  color: #ccc;
+  border-color: #555;
+}
+
+.history-empty {
+  color: #555;
+  font-size: 14px;
+  text-align: center;
+  padding: 32px 0;
+}
+
+/* Session list */
+.session-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.session-item {
+  background: #222;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.session-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 16px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.session-row:hover {
+  background: #2a2a2a;
+}
+
+.session-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.session-date {
+  font-size: 14px;
+  font-weight: 600;
+  color: #ccc;
+}
+
+.session-prompt {
+  font-size: 13px;
+  color: #666;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.session-expand {
+  font-size: 16px;
+  color: #555;
+}
+
+/* Takes within a session */
+.session-takes {
+  padding: 0 16px 16px;
+}
+
+.takes-empty {
+  font-size: 13px;
+  color: #555;
+  padding: 8px 0;
+}
+
+.history-take-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  background: #1a1a1a;
+  border-radius: 8px;
+  margin-bottom: 6px;
+}
+
+.history-take-item .take-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.history-take-item .take-num {
+  font-size: 14px;
+  font-weight: 600;
+  color: #ddd;
+}
+
+.history-take-item .take-meta {
+  font-size: 12px;
+  color: #666;
+}
+
+.take-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.btn-play-sm,
+.btn-delete-sm {
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  border: none;
+  font-size: 16px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.btn-play-sm {
+  background: rgba(76, 175, 80, 0.12);
+  color: #4caf50;
+}
+
+.btn-play-sm:hover:not(:disabled) {
+  background: rgba(76, 175, 80, 0.22);
+}
+
+.btn-play-sm:disabled {
+  opacity: 0.4;
+}
+
+.btn-delete-sm {
+  background: rgba(229, 57, 53, 0.1);
+  color: #e53935;
+}
+
+.btn-delete-sm:hover {
+  background: rgba(229, 57, 53, 0.2);
+}
+
+.btn-delete-session {
+  width: 100%;
+  margin-top: 8px;
+  padding: 10px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #e53935;
+  background: rgba(229, 57, 53, 0.08);
+  border: 1px solid rgba(229, 57, 53, 0.2);
+  border-radius: 8px;
+  cursor: pointer;
+  min-height: 44px;
+}
+
+.btn-delete-session:hover {
+  background: rgba(229, 57, 53, 0.15);
+}

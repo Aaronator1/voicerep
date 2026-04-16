@@ -22,6 +22,11 @@
 
 /* ── Header ── */
 .header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  max-width: 640px;
   margin-bottom: 32px;
 }
 
@@ -30,6 +35,35 @@
   font-weight: 700;
   letter-spacing: 0.04em;
   color: #fff;
+}
+
+.header-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.btn-header {
+  font-size: 13px;
+  font-weight: 500;
+  color: #888;
+  background: none;
+  border: 1px solid #333;
+  border-radius: 8px;
+  padding: 8px 14px;
+  cursor: pointer;
+  min-height: 44px;
+  transition: color 0.15s, border-color 0.15s;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.btn-header:hover:not(:disabled) {
+  color: #ccc;
+  border-color: #555;
+}
+
+.btn-header:disabled {
+  opacity: 0.3;
+  cursor: default;
 }
 
 /* ── Prompt display ── */

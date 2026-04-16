@@ -1,26 +1,66 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import useRecorder from './hooks/useRecorder';
-import prompts from './data/prompts';
+import defaultPrompts from './data/prompts';
+import {
+  getOrCreateSession,
+  saveTake,
+  getTakesForSession,
+  getCustomPrompts,
+  saveCustomPrompts,
+} from './db';
+import SessionHistory from './components/SessionHistory';
+import CustomPromptInput from './components/CustomPromptInput';
 import './App.css';
 
 export default function App() {
+  // Prompts (default + custom)
+  const [allPrompts, setAllPrompts] = useState(defaultPrompts);
   const [promptIndex, setPromptIndex] = useState(0);
+
+  // Session & takes (persisted)
+  const [currentSession, setCurrentSession] = useState(null);
   const [takes, setTakes] = useState([]);
   const [playingTakeId, setPlayingTakeId] = useState(null);
 
-  const handleRecordingComplete = useCallback((blob, durationMs) => {
-    const url = URL.createObjectURL(blob);
-    setTakes((prev) => [
-      ...prev,
-      {
-        id: Date.now(),
-        num: prev.length + 1,
-        url,
-        durationMs,
-        sizeKB: (blob.size / 1024).toFixed(1),
-      },
-    ]);
+  // UI panels
+  const [showHistory, setShowHistory] = useState(false);
+  const [showCustomInput, setShowCustomInput] = useState(false);
+
+  // Load custom prompts on mount
+  useEffect(() => {
+    (async () => {
+      const custom = await getCustomPrompts();
+      if (custom.length > 0) {
+        setAllPrompts([...defaultPrompts, ...custom]);
+      }
+    })();
   }, []);
+
+  // Create/load session when prompt changes
+  useEffect(() => {
+    (async () => {
+      const promptText = allPrompts[promptIndex];
+      if (!promptText) return;
+      const session = await getOrCreateSession(promptText);
+      setCurrentSession(session);
+      const sessionTakes = await getTakesForSession(session.id);
+      setTakes(sessionTakes);
+    })();
+  }, [promptIndex, allPrompts]);
+
+  const handleRecordingComplete = useCallback(
+    async (blob, durationMs) => {
+      if (!currentSession) return;
+
+      const num = takes.length + 1;
+      await saveTake(currentSession.id, num, blob, durationMs);
+
+      // Reload takes from DB to stay in sync
+      const sessionTakes = await getTakesForSession(currentSession.id);
+      setTakes(sessionTakes);
+    },
+    [currentSession, takes.length]
+  );
 
   const { isRecording, error, startRecording, stopRecording } = useRecorder({
     onRecordingComplete: handleRecordingComplete,
@@ -36,18 +76,33 @@ export default function App() {
   };
 
   const handlePlayTake = (take) => {
-    const audio = new Audio(take.url);
+    if (!take.audio) return;
+    const url = URL.createObjectURL(take.audio);
+    const audio = new Audio(url);
     setPlayingTakeId(take.id);
-    audio.onended = () => setPlayingTakeId(null);
+    audio.onended = () => {
+      setPlayingTakeId(null);
+      URL.revokeObjectURL(url);
+    };
     audio.play().catch(() => setPlayingTakeId(null));
   };
 
   const handleNextPrompt = () => {
-    setPromptIndex((i) => (i + 1) % prompts.length);
+    setPromptIndex((i) => (i + 1) % allPrompts.length);
   };
 
   const handlePrevPrompt = () => {
-    setPromptIndex((i) => (i - 1 + prompts.length) % prompts.length);
+    setPromptIndex((i) => (i - 1 + allPrompts.length) % allPrompts.length);
+  };
+
+  const handleAddCustomPrompt = async (text) => {
+    const custom = await getCustomPrompts();
+    const updated = [...custom, text];
+    await saveCustomPrompts(updated);
+    const newAll = [...defaultPrompts, ...updated];
+    setAllPrompts(newAll);
+    setPromptIndex(newAll.length - 1);
+    setShowCustomInput(false);
   };
 
   const formatDuration = (ms) => {
@@ -61,17 +116,33 @@ export default function App() {
     <div className="app">
       <header className="header">
         <h1 className="logo">VoiceRep</h1>
+        <div className="header-actions">
+          <button
+            className="btn-header"
+            onClick={() => setShowCustomInput(true)}
+            disabled={isRecording}
+          >
+            + Prompt
+          </button>
+          <button
+            className="btn-header"
+            onClick={() => setShowHistory(true)}
+            disabled={isRecording}
+          >
+            History
+          </button>
+        </div>
       </header>
 
       {/* Text prompt — visible throughout recording */}
       <div className="prompt-container">
-        <p className="prompt-text">{prompts[promptIndex]}</p>
+        <p className="prompt-text">{allPrompts[promptIndex]}</p>
         <div className="prompt-nav">
           <button className="btn-nav" onClick={handlePrevPrompt} disabled={isRecording}>
             Prev
           </button>
           <span className="prompt-counter">
-            {promptIndex + 1} / {prompts.length}
+            {promptIndex + 1} / {allPrompts.length}
           </span>
           <button className="btn-nav" onClick={handleNextPrompt} disabled={isRecording}>
             Next
@@ -93,10 +164,12 @@ export default function App() {
       {/* Error display */}
       {error && <p className="error">{error}</p>}
 
-      {/* Take list — manual replay of any saved take */}
+      {/* Take list for current session */}
       {takes.length > 0 && (
         <div className="takes">
-          <h2 className="takes-heading">Takes</h2>
+          <h2 className="takes-heading">
+            Takes{currentSession ? ` — ${new Date().toLocaleDateString()}` : ''}
+          </h2>
           <div className="take-list">
             {takes
               .slice()
@@ -120,6 +193,15 @@ export default function App() {
               ))}
           </div>
         </div>
+      )}
+
+      {/* Panels */}
+      {showHistory && <SessionHistory onClose={() => setShowHistory(false)} />}
+      {showCustomInput && (
+        <CustomPromptInput
+          onSave={handleAddCustomPrompt}
+          onClose={() => setShowCustomInput(false)}
+        />
       )}
     </div>
   );
