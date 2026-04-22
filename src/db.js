@@ -1,4 +1,5 @@
 import Dexie from 'dexie';
+import defaultPrompts from './data/prompts';
 
 const db = new Dexie('VoiceRepDB');
 
@@ -15,7 +16,6 @@ export default db;
 export async function getOrCreateSession(promptText) {
   const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
 
-  // Look for an existing session today with the same prompt
   const existing = await db.sessions
     .where('date')
     .equals(today)
@@ -43,7 +43,7 @@ export async function saveTake(sessionId, num, blob, durationMs) {
     timestamp: Date.now(),
     durationMs,
     sizeKB: parseFloat((blob.size / 1024).toFixed(1)),
-    audio: blob, // stored as Blob in IndexedDB
+    audio: blob,
   });
 
   return db.takes.get(id);
@@ -79,15 +79,47 @@ export async function deleteSession(sessionId) {
   return db.sessions.delete(sessionId);
 }
 
+/* ───────── Prompts (unified list, fully CRUD) ───────── */
+
+const PROMPTS_KEY = 'voicerep_prompts';
+const LEGACY_CUSTOM_KEY = 'voicerep_custom_prompts';
+
 /**
- * Get or create a custom prompt list stored in a special table.
- * We store custom prompts as a session with a sentinel date.
+ * Get the full prompt list.
+ * Seeds defaults on first load; also migrates any pre-existing custom prompts
+ * from the legacy key so upgraders don't lose their entries.
  */
-export async function getCustomPrompts() {
-  const stored = localStorage.getItem('voicerep_custom_prompts');
-  return stored ? JSON.parse(stored) : [];
+export async function getPrompts() {
+  const stored = localStorage.getItem(PROMPTS_KEY);
+  if (stored) {
+    try {
+      const arr = JSON.parse(stored);
+      if (Array.isArray(arr) && arr.length > 0) return arr;
+    } catch {
+      // fall through to re-seed
+    }
+  }
+
+  // First load (or corrupted). Seed defaults, then append any legacy customs.
+  const legacy = localStorage.getItem(LEGACY_CUSTOM_KEY);
+  let legacyCustoms = [];
+  if (legacy) {
+    try {
+      const parsed = JSON.parse(legacy);
+      if (Array.isArray(parsed)) legacyCustoms = parsed;
+    } catch {
+      // ignore
+    }
+  }
+
+  const seeded = [...defaultPrompts, ...legacyCustoms];
+  localStorage.setItem(PROMPTS_KEY, JSON.stringify(seeded));
+  return seeded;
 }
 
-export async function saveCustomPrompts(prompts) {
-  localStorage.setItem('voicerep_custom_prompts', JSON.stringify(prompts));
+/**
+ * Persist the full prompt list.
+ */
+export async function savePrompts(prompts) {
+  localStorage.setItem(PROMPTS_KEY, JSON.stringify(prompts));
 }

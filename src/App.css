@@ -81,15 +81,61 @@
   background: #1a1a1a;
   border-radius: 16px;
   color: #f0f0f0;
-  /* readable at arm's length on phone */
 }
 
+/* Inline actions for the current prompt (Edit / Delete) */
+.prompt-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.btn-action {
+  font-size: 13px;
+  font-weight: 500;
+  color: #bbb;
+  background: #1a1a1a;
+  border: 1px solid #2e2e2e;
+  border-radius: 8px;
+  padding: 6px 14px;
+  cursor: pointer;
+  min-height: 36px;
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.btn-action:hover:not(:disabled) {
+  color: #fff;
+  border-color: #555;
+  background: #222;
+}
+
+.btn-action:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
+.btn-action-danger {
+  color: #e57373;
+  border-color: rgba(229, 57, 53, 0.28);
+  background: rgba(229, 57, 53, 0.05);
+}
+
+.btn-action-danger:hover:not(:disabled) {
+  color: #fff;
+  background: rgba(229, 57, 53, 0.18);
+  border-color: rgba(229, 57, 53, 0.5);
+}
+
+/* Nav row: First / Prev / counter / Next / Last */
 .prompt-nav {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 20px;
+  gap: 10px;
   margin-top: 16px;
+  flex-wrap: wrap;
 }
 
 .btn-nav {
@@ -99,9 +145,11 @@
   background: none;
   border: 1px solid #333;
   border-radius: 8px;
-  padding: 8px 18px;
+  padding: 8px 14px;
   cursor: pointer;
+  min-height: 40px;
   transition: color 0.15s, border-color 0.15s;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .btn-nav:hover:not(:disabled) {
@@ -116,7 +164,68 @@
 
 .prompt-counter {
   font-size: 13px;
-  color: #555;
+  color: #777;
+  min-width: 56px;
+  text-align: center;
+}
+
+/* Numbered pill strip for direct jump */
+.pill-strip {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 6px;
+  margin-top: 12px;
+  overflow-x: auto;
+  padding: 6px 2px;
+  scrollbar-width: thin;
+  -webkit-overflow-scrolling: touch;
+}
+
+.pill-strip::-webkit-scrollbar {
+  height: 6px;
+}
+
+.pill-strip::-webkit-scrollbar-thumb {
+  background: #333;
+  border-radius: 3px;
+}
+
+.pill {
+  flex: 0 0 auto;
+  min-width: 36px;
+  height: 36px;
+  padding: 0 10px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #888;
+  background: #141414;
+  border: 1px solid #2a2a2a;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: color 0.15s, background 0.15s, border-color 0.15s;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.pill:hover:not(:disabled) {
+  color: #ddd;
+  border-color: #555;
+  background: #1e1e1e;
+}
+
+.pill.active {
+  color: #fff;
+  background: #e53935;
+  border-color: #e53935;
+}
+
+.pill.active:hover:not(:disabled) {
+  background: #c62828;
+  border-color: #c62828;
+}
+
+.pill:disabled {
+  opacity: 0.4;
+  cursor: default;
 }
 
 /* ── Record button ── */
@@ -138,17 +247,21 @@
   font-weight: 700;
   cursor: pointer;
   transition: background 0.2s, color 0.2s, transform 0.1s;
-  /* min 44pt tap target — this exceeds it */
   touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
 }
 
-.btn-record:hover {
+.btn-record:hover:not(:disabled) {
   background: rgba(229, 57, 53, 0.08);
 }
 
-.btn-record:active {
+.btn-record:active:not(:disabled) {
   transform: scale(0.95);
+}
+
+.btn-record:disabled {
+  opacity: 0.3;
+  cursor: default;
 }
 
 .btn-record.recording {

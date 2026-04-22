@@ -1,21 +1,21 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import useRecorder from './hooks/useRecorder';
-import defaultPrompts from './data/prompts';
 import {
   getOrCreateSession,
   saveTake,
   getTakesForSession,
-  getCustomPrompts,
-  saveCustomPrompts,
+  getPrompts,
+  savePrompts,
 } from './db';
 import SessionHistory from './components/SessionHistory';
-import CustomPromptInput from './components/CustomPromptInput';
+import PromptEditor from './components/PromptEditor';
 import './App.css';
 
 export default function App() {
-  // Prompts (default + custom)
-  const [allPrompts, setAllPrompts] = useState(defaultPrompts);
+  // Prompt list (single source of truth — fully editable)
+  const [prompts, setPrompts] = useState([]);
   const [promptIndex, setPromptIndex] = useState(0);
+  const [promptsLoaded, setPromptsLoaded] = useState(false);
 
   // Session & takes (persisted)
   const [currentSession, setCurrentSession] = useState(null);
@@ -24,29 +24,41 @@ export default function App() {
 
   // UI panels
   const [showHistory, setShowHistory] = useState(false);
-  const [showCustomInput, setShowCustomInput] = useState(false);
+  const [editorState, setEditorState] = useState(null); // null | { mode: 'add' | 'edit', index?: number }
 
-  // Load custom prompts on mount
+  // Scroll the active pill into view
+  const pillsRef = useRef(null);
+
+  // Load prompts on mount
   useEffect(() => {
     (async () => {
-      const custom = await getCustomPrompts();
-      if (custom.length > 0) {
-        setAllPrompts([...defaultPrompts, ...custom]);
-      }
+      const loaded = await getPrompts();
+      setPrompts(loaded);
+      setPromptsLoaded(true);
     })();
   }, []);
 
   // Create/load session when prompt changes
   useEffect(() => {
+    if (!promptsLoaded || prompts.length === 0) return;
     (async () => {
-      const promptText = allPrompts[promptIndex];
+      const promptText = prompts[promptIndex];
       if (!promptText) return;
       const session = await getOrCreateSession(promptText);
       setCurrentSession(session);
       const sessionTakes = await getTakesForSession(session.id);
       setTakes(sessionTakes);
     })();
-  }, [promptIndex, allPrompts]);
+  }, [promptIndex, prompts, promptsLoaded]);
+
+  // Keep active pill scrolled into view as index changes
+  useEffect(() => {
+    if (!pillsRef.current) return;
+    const active = pillsRef.current.querySelector('.pill.active');
+    if (active && active.scrollIntoView) {
+      active.scrollIntoView({ block: 'nearest', inline: 'center', behavior: 'smooth' });
+    }
+  }, [promptIndex]);
 
   const handleRecordingComplete = useCallback(
     async (blob, durationMs) => {
@@ -55,7 +67,6 @@ export default function App() {
       const num = takes.length + 1;
       await saveTake(currentSession.id, num, blob, durationMs);
 
-      // Reload takes from DB to stay in sync
       const sessionTakes = await getTakesForSession(currentSession.id);
       setTakes(sessionTakes);
     },
@@ -87,22 +98,54 @@ export default function App() {
     audio.play().catch(() => setPlayingTakeId(null));
   };
 
-  const handleNextPrompt = () => {
-    setPromptIndex((i) => (i + 1) % allPrompts.length);
+  /* ── Navigation ── */
+  const goTo = (i) => {
+    if (prompts.length === 0) return;
+    const clamped = Math.max(0, Math.min(prompts.length - 1, i));
+    setPromptIndex(clamped);
+  };
+  const handleFirst = () => goTo(0);
+  const handleLast = () => goTo(prompts.length - 1);
+  const handlePrev = () => goTo(promptIndex === 0 ? prompts.length - 1 : promptIndex - 1);
+  const handleNext = () => goTo(promptIndex === prompts.length - 1 ? 0 : promptIndex + 1);
+
+  /* ── CRUD ── */
+  const openAdd = () => setEditorState({ mode: 'add' });
+  const openEdit = () => setEditorState({ mode: 'edit', index: promptIndex });
+  const closeEditor = () => setEditorState(null);
+
+  const handleSavePrompt = async (text) => {
+    if (!editorState) return;
+    let next;
+    let nextIndex = promptIndex;
+
+    if (editorState.mode === 'add') {
+      next = [...prompts, text];
+      nextIndex = next.length - 1;
+    } else {
+      // edit
+      const idx = editorState.index;
+      next = prompts.map((p, i) => (i === idx ? text : p));
+      nextIndex = idx;
+    }
+
+    setPrompts(next);
+    setPromptIndex(nextIndex);
+    await savePrompts(next);
+    setEditorState(null);
   };
 
-  const handlePrevPrompt = () => {
-    setPromptIndex((i) => (i - 1 + allPrompts.length) % allPrompts.length);
-  };
+  const handleDeletePrompt = async () => {
+    if (prompts.length <= 1) return; // guardrail: keep at least one
+    const confirmMsg =
+      'Delete this prompt?\n\nYour recorded takes will stay in Session History — only this prompt is removed from the list.';
+    if (!window.confirm(confirmMsg)) return;
 
-  const handleAddCustomPrompt = async (text) => {
-    const custom = await getCustomPrompts();
-    const updated = [...custom, text];
-    await saveCustomPrompts(updated);
-    const newAll = [...defaultPrompts, ...updated];
-    setAllPrompts(newAll);
-    setPromptIndex(newAll.length - 1);
-    setShowCustomInput(false);
+    const next = prompts.filter((_, i) => i !== promptIndex);
+    const nextIndex = Math.min(promptIndex, next.length - 1);
+    setPrompts(next);
+    setPromptIndex(nextIndex);
+    await savePrompts(next);
   };
 
   const formatDuration = (ms) => {
@@ -112,6 +155,11 @@ export default function App() {
     return min > 0 ? `${min}:${sec.toString().padStart(2, '0')}` : `${sec}s`;
   };
 
+  const currentPrompt = prompts[promptIndex] ?? '';
+  const atFirst = promptIndex === 0;
+  const atLast = promptIndex === prompts.length - 1;
+  const onlyOne = prompts.length <= 1;
+
   return (
     <div className="app">
       <header className="header">
@@ -119,7 +167,7 @@ export default function App() {
         <div className="header-actions">
           <button
             className="btn-header"
-            onClick={() => setShowCustomInput(true)}
+            onClick={openAdd}
             disabled={isRecording}
           >
             + Prompt
@@ -134,20 +182,89 @@ export default function App() {
         </div>
       </header>
 
-      {/* Text prompt — visible throughout recording */}
+      {/* Prompt card — text to read */}
       <div className="prompt-container">
-        <p className="prompt-text">{allPrompts[promptIndex]}</p>
-        <div className="prompt-nav">
-          <button className="btn-nav" onClick={handlePrevPrompt} disabled={isRecording}>
-            Prev
+        <p className="prompt-text">{currentPrompt}</p>
+
+        {/* Inline actions (edit / delete current prompt) */}
+        <div className="prompt-actions">
+          <button
+            className="btn-action"
+            onClick={openEdit}
+            disabled={isRecording || prompts.length === 0}
+            aria-label="Edit current prompt"
+          >
+            Edit
           </button>
-          <span className="prompt-counter">
-            {promptIndex + 1} / {allPrompts.length}
-          </span>
-          <button className="btn-nav" onClick={handleNextPrompt} disabled={isRecording}>
-            Next
+          <button
+            className="btn-action btn-action-danger"
+            onClick={handleDeletePrompt}
+            disabled={isRecording || onlyOne}
+            aria-label="Delete current prompt"
+            title={onlyOne ? 'Keep at least one prompt' : 'Delete this prompt'}
+          >
+            Delete
           </button>
         </div>
+
+        {/* Jump nav: First / Prev / pills / Next / Last */}
+        <div className="prompt-nav">
+          <button
+            className="btn-nav"
+            onClick={handleFirst}
+            disabled={isRecording || atFirst}
+            aria-label="Jump to first prompt"
+            title="First"
+          >
+            «
+          </button>
+          <button
+            className="btn-nav"
+            onClick={handlePrev}
+            disabled={isRecording}
+            aria-label="Previous prompt"
+          >
+            ‹ Prev
+          </button>
+          <span className="prompt-counter">
+            {prompts.length === 0 ? '0 / 0' : `${promptIndex + 1} / ${prompts.length}`}
+          </span>
+          <button
+            className="btn-nav"
+            onClick={handleNext}
+            disabled={isRecording}
+            aria-label="Next prompt"
+          >
+            Next ›
+          </button>
+          <button
+            className="btn-nav"
+            onClick={handleLast}
+            disabled={isRecording || atLast}
+            aria-label="Jump to last prompt"
+            title="Last"
+          >
+            »
+          </button>
+        </div>
+
+        {/* Pill strip — click any to jump directly */}
+        {prompts.length > 1 && (
+          <div className="pill-strip" ref={pillsRef}>
+            {prompts.map((_, i) => (
+              <button
+                key={i}
+                className={`pill ${i === promptIndex ? 'active' : ''}`}
+                onClick={() => goTo(i)}
+                disabled={isRecording}
+                aria-label={`Jump to prompt ${i + 1}`}
+                aria-current={i === promptIndex ? 'true' : 'false'}
+              >
+                {i + 1}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Single record/stop button — two-tap loop */}
@@ -155,13 +272,13 @@ export default function App() {
         <button
           className={`btn-record ${isRecording ? 'recording' : ''}`}
           onClick={handleRecordToggle}
+          disabled={prompts.length === 0}
         >
           {isRecording ? 'Stop' : 'Record'}
         </button>
         {isRecording && <p className="recording-indicator">Recording</p>}
       </div>
 
-      {/* Error display */}
       {error && <p className="error">{error}</p>}
 
       {/* Take list for current session */}
@@ -197,10 +314,14 @@ export default function App() {
 
       {/* Panels */}
       {showHistory && <SessionHistory onClose={() => setShowHistory(false)} />}
-      {showCustomInput && (
-        <CustomPromptInput
-          onSave={handleAddCustomPrompt}
-          onClose={() => setShowCustomInput(false)}
+      {editorState && (
+        <PromptEditor
+          mode={editorState.mode}
+          initialText={
+            editorState.mode === 'edit' ? prompts[editorState.index] ?? '' : ''
+          }
+          onSave={handleSavePrompt}
+          onClose={closeEditor}
         />
       )}
     </div>

@@ -1,6 +1,6 @@
-/* ── Custom Prompt Input ── */
+/* ── Prompt Editor (Add / Edit) ── */
 
-.custom-prompt-overlay {
+.prompt-editor-overlay {
   position: fixed;
   inset: 0;
   background: rgba(0, 0, 0, 0.85);
@@ -11,7 +11,7 @@
   padding: 24px 16px;
 }
 
-.custom-prompt-panel {
+.prompt-editor-panel {
   width: 100%;
   max-width: 640px;
   background: #1a1a1a;
@@ -20,27 +20,27 @@
   margin-top: 40px;
 }
 
-.custom-prompt-header {
+.prompt-editor-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
   margin-bottom: 16px;
 }
 
-.custom-prompt-header h2 {
+.prompt-editor-header h2 {
   font-size: 18px;
   font-weight: 600;
   color: #eee;
   margin: 0;
 }
 
-.custom-prompt-hint {
+.prompt-editor-hint {
   font-size: 14px;
   color: #888;
   margin-bottom: 16px;
 }
 
-.custom-prompt-textarea {
+.prompt-editor-textarea {
   width: 100%;
   padding: 16px;
   font-size: 16px;
@@ -50,16 +50,16 @@
   border: 1px solid #333;
   border-radius: 12px;
   resize: vertical;
-  min-height: 120px;
+  min-height: 160px;
   font-family: inherit;
   box-sizing: border-box;
 }
 
-.custom-prompt-textarea::placeholder {
+.prompt-editor-textarea::placeholder {
   color: #555;
 }
 
-.custom-prompt-textarea:focus {
+.prompt-editor-textarea:focus {
   outline: none;
   border-color: #555;
 }
