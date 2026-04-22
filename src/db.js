@@ -11,19 +11,20 @@ db.version(1).stores({
 export default db;
 
 /**
- * Create a new session for today, or return the existing one for the given prompt.
+ * Return the primary (oldest) session for a given prompt, creating one if none exist.
+ * Sessions are keyed by promptText only — so takes accumulate across days.
+ * Any pre-existing dated sessions for the same prompt are left intact (visible in
+ * History, and their takes are still surfaced via getTakesForPrompt).
  */
 export async function getOrCreateSession(promptText) {
-  const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+  const matches = await db.sessions
+    .where('promptText')
+    .equals(promptText)
+    .sortBy('createdAt');
 
-  const existing = await db.sessions
-    .where('date')
-    .equals(today)
-    .filter((s) => s.promptText === promptText)
-    .first();
+  if (matches.length > 0) return matches[0];
 
-  if (existing) return existing;
-
+  const today = new Date().toISOString().slice(0, 10);
   const id = await db.sessions.add({
     date: today,
     promptText,
@@ -54,6 +55,24 @@ export async function saveTake(sessionId, num, blob, durationMs) {
  */
 export async function getTakesForSession(sessionId) {
   return db.takes.where('sessionId').equals(sessionId).sortBy('num');
+}
+
+/**
+ * Get every take ever recorded against a given prompt, across all sessions that
+ * matched its text (handles historical dated sessions + the current one).
+ * Sorted chronologically (oldest → newest).
+ */
+export async function getTakesForPrompt(promptText) {
+  const sessions = await db.sessions
+    .where('promptText')
+    .equals(promptText)
+    .toArray();
+
+  if (sessions.length === 0) return [];
+
+  const sessionIds = sessions.map((s) => s.id);
+  const takes = await db.takes.where('sessionId').anyOf(sessionIds).toArray();
+  return takes.sort((a, b) => a.timestamp - b.timestamp);
 }
 
 /**

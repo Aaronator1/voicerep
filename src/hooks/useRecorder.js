@@ -3,9 +3,11 @@ import { useState, useRef, useCallback } from 'react';
 /**
  * Core recording engine.
  * Exposes: startRecording, stopRecording, isRecording, error
- * On stop, calls onRecordingComplete(blob, durationMs) and auto-plays if enabled.
+ * On stop, calls onRecordingComplete(blob, durationMs). Playback is the
+ * caller's responsibility — this hook no longer manages audio playback so that
+ * the app can control play / pause / resume uniformly.
  */
-export default function useRecorder({ onRecordingComplete, autoPlayback = true }) {
+export default function useRecorder({ onRecordingComplete }) {
   const [isRecording, setIsRecording] = useState(false);
   const [error, setError] = useState(null);
 
@@ -71,14 +73,6 @@ export default function useRecorder({ onRecordingComplete, autoPlayback = true }
         streamRef.current?.getTracks().forEach((t) => t.stop());
         streamRef.current = null;
 
-        // Auto-playback
-        if (autoPlayback) {
-          const audio = new Audio(URL.createObjectURL(blob));
-          audio.play().catch(() => {
-            // iOS may block — caller handles via UI
-          });
-        }
-
         onRecordingComplete?.(blob, durationMs);
       };
 
@@ -92,7 +86,7 @@ export default function useRecorder({ onRecordingComplete, autoPlayback = true }
         setError(`Recording error: ${err.message}`);
       }
     }
-  }, [autoPlayback, onRecordingComplete, pickMimeType]);
+  }, [onRecordingComplete, pickMimeType]);
 
   const stopRecording = useCallback(() => {
     if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {

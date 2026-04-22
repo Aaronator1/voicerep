@@ -128,53 +128,12 @@
   border-color: rgba(229, 57, 53, 0.5);
 }
 
-/* Nav row: First / Prev / counter / Next / Last */
-.prompt-nav {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  margin-top: 16px;
-  flex-wrap: wrap;
-}
-
-.btn-nav {
-  font-size: 14px;
-  font-weight: 500;
-  color: #888;
-  background: none;
-  border: 1px solid #333;
-  border-radius: 8px;
-  padding: 8px 14px;
-  cursor: pointer;
-  min-height: 40px;
-  transition: color 0.15s, border-color 0.15s;
-  -webkit-tap-highlight-color: transparent;
-}
-
-.btn-nav:hover:not(:disabled) {
-  color: #ccc;
-  border-color: #555;
-}
-
-.btn-nav:disabled {
-  opacity: 0.3;
-  cursor: default;
-}
-
-.prompt-counter {
-  font-size: 13px;
-  color: #777;
-  min-width: 56px;
-  text-align: center;
-}
-
-/* Numbered pill strip for direct jump */
+/* Numbered pill strip — one button per prompt (primary nav) */
 .pill-strip {
   display: flex;
   flex-wrap: nowrap;
   gap: 6px;
-  margin-top: 12px;
+  margin-top: 16px;
   overflow-x: auto;
   padding: 6px 2px;
   scrollbar-width: thin;
@@ -353,10 +312,12 @@
   border-radius: 8px;
   padding: 8px 20px;
   cursor: pointer;
-  transition: background 0.15s;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
   touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
   min-height: 44px;
+  min-width: 96px;
+  text-align: center;
 }
 
 .btn-play:hover:not(:disabled) {
@@ -366,4 +327,16 @@
 .btn-play:disabled {
   opacity: 0.5;
   cursor: default;
+}
+
+/* Active (currently playing) — solid fill so Pause reads as primary action */
+.btn-play.is-playing {
+  color: #fff;
+  background: #4caf50;
+  border-color: #4caf50;
+}
+
+.btn-play.is-playing:hover:not(:disabled) {
+  background: #43a047;
+  border-color: #43a047;
 }

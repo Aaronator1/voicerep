@@ -42,7 +42,6 @@ export default function SessionHistory({ onClose }) {
 
   async function handleDeleteTake(takeId) {
     await deleteTake(takeId);
-    // Reload takes for expanded session
     if (expandedId) {
       const sessionTakes = await getTakesForSession(expandedId);
       setTakes(sessionTakes);

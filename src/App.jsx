@@ -3,7 +3,7 @@ import useRecorder from './hooks/useRecorder';
 import {
   getOrCreateSession,
   saveTake,
-  getTakesForSession,
+  getTakesForPrompt,
   getPrompts,
   savePrompts,
 } from './db';
@@ -20,7 +20,13 @@ export default function App() {
   // Session & takes (persisted)
   const [currentSession, setCurrentSession] = useState(null);
   const [takes, setTakes] = useState([]);
+
+  // Playback state — lifted so play / pause / resume can target any take
+  // (including auto-played takes right after recording).
   const [playingTakeId, setPlayingTakeId] = useState(null);
+  const [isPaused, setIsPaused] = useState(false);
+  const audioRef = useRef(null);
+  const objectUrlRef = useRef(null);
 
   // UI panels
   const [showHistory, setShowHistory] = useState(false);
@@ -29,7 +35,68 @@ export default function App() {
   // Scroll the active pill into view
   const pillsRef = useRef(null);
 
-  // Load prompts on mount
+  /* ── Playback helpers ── */
+  const stopPlayback = useCallback(() => {
+    if (audioRef.current) {
+      try {
+        audioRef.current.pause();
+      } catch {
+        // ignore
+      }
+      audioRef.current = null;
+    }
+    if (objectUrlRef.current) {
+      URL.revokeObjectURL(objectUrlRef.current);
+      objectUrlRef.current = null;
+    }
+    setPlayingTakeId(null);
+    setIsPaused(false);
+  }, []);
+
+  const playTake = useCallback(
+    (take) => {
+      if (!take?.audio) return;
+      // Tear down anything currently playing.
+      stopPlayback();
+
+      const url = URL.createObjectURL(take.audio);
+      const audio = new Audio(url);
+      audioRef.current = audio;
+      objectUrlRef.current = url;
+
+      audio.onended = () => stopPlayback();
+      setPlayingTakeId(take.id);
+      setIsPaused(false);
+      audio.play().catch(() => stopPlayback());
+    },
+    [stopPlayback]
+  );
+
+  const handleTakeButton = useCallback(
+    (take) => {
+      // Not the currently-loaded take → start fresh.
+      if (playingTakeId !== take.id) {
+        playTake(take);
+        return;
+      }
+      // Same take → toggle pause/resume.
+      const audio = audioRef.current;
+      if (!audio) {
+        playTake(take);
+        return;
+      }
+      if (isPaused) {
+        audio.play().catch(() => stopPlayback());
+        setIsPaused(false);
+      } else {
+        audio.pause();
+        setIsPaused(true);
+      }
+    },
+    [playingTakeId, isPaused, playTake, stopPlayback]
+  );
+
+  /* ── Load prompts on mount ── */
   useEffect(() => {
     (async () => {
       const loaded = await getPrompts();
@@ -38,20 +105,21 @@ export default function App() {
     })();
   }, []);
 
-  // Create/load session when prompt changes
+  /* ── Load session + takes when prompt changes (and stop any playback) ── */
   useEffect(() => {
     if (!promptsLoaded || prompts.length === 0) return;
+    stopPlayback();
     (async () => {
       const promptText = prompts[promptIndex];
       if (!promptText) return;
       const session = await getOrCreateSession(promptText);
       setCurrentSession(session);
-      const sessionTakes = await getTakesForSession(session.id);
-      setTakes(sessionTakes);
+      const allTakes = await getTakesForPrompt(promptText);
+      setTakes(allTakes);
     })();
-  }, [promptIndex, prompts, promptsLoaded]);
+  }, [promptIndex, prompts, promptsLoaded, stopPlayback]);
 
-  // Keep active pill scrolled into view as index changes
+  /* ── Keep the active pill visible ── */
   useEffect(() => {
     if (!pillsRef.current) return;
     const active = pillsRef.current.querySelector('.pill.active');
@@ -60,54 +128,52 @@ export default function App() {
     }
   }, [promptIndex]);
 
+  /* ── Cleanup on unmount ── */
+  useEffect(() => {
+    return () => stopPlayback();
+  }, [stopPlayback]);
+
   const handleRecordingComplete = useCallback(
     async (blob, durationMs) => {
       if (!currentSession) return;
+      const promptText = prompts[promptIndex];
 
-      const num = takes.length + 1;
-      await saveTake(currentSession.id, num, blob, durationMs);
+      // Number within the session (existing behavior), based on that session's takes.
+      const sessionTakeCount = takes.filter((t) => t.sessionId === currentSession.id).length;
+      const num = sessionTakeCount + 1;
 
-      const sessionTakes = await getTakesForSession(currentSession.id);
-      setTakes(sessionTakes);
+      const newTake = await saveTake(currentSession.id, num, blob, durationMs);
+
+      // Refresh full list across all sessions for this prompt.
+      const allTakes = await getTakesForPrompt(promptText);
+      setTakes(allTakes);
+
+      // Auto-play the new take via the tracked mechanism (so it can be paused).
+      playTake(newTake);
     },
-    [currentSession, takes.length]
+    [currentSession, prompts, promptIndex, takes, playTake]
   );
 
   const { isRecording, error, startRecording, stopRecording } = useRecorder({
     onRecordingComplete: handleRecordingComplete,
-    autoPlayback: true,
   });
 
   const handleRecordToggle = () => {
     if (isRecording) {
       stopRecording();
     } else {
+      // If audio is playing while the user hits record, stop it first.
+      stopPlayback();
       startRecording();
     }
   };
 
-  const handlePlayTake = (take) => {
-    if (!take.audio) return;
-    const url = URL.createObjectURL(take.audio);
-    const audio = new Audio(url);
-    setPlayingTakeId(take.id);
-    audio.onended = () => {
-      setPlayingTakeId(null);
-      URL.revokeObjectURL(url);
-    };
-    audio.play().catch(() => setPlayingTakeId(null));
-  };
-
-  /* ── Navigation ── */
+  /* ── Navigation (pills only) ── */
   const goTo = (i) => {
     if (prompts.length === 0) return;
     const clamped = Math.max(0, Math.min(prompts.length - 1, i));
     setPromptIndex(clamped);
   };
-  const handleFirst = () => goTo(0);
-  const handleLast = () => goTo(prompts.length - 1);
-  const handlePrev = () => goTo(promptIndex === 0 ? prompts.length - 1 : promptIndex - 1);
-  const handleNext = () => goTo(promptIndex === prompts.length - 1 ? 0 : promptIndex + 1);
 
   /* ── CRUD ── */
   const openAdd = () => setEditorState({ mode: 'add' });
@@ -123,7 +189,6 @@ export default function App() {
       next = [...prompts, text];
       nextIndex = next.length - 1;
     } else {
-      // edit
       const idx = editorState.index;
       next = prompts.map((p, i) => (i === idx ? text : p));
       nextIndex = idx;
@@ -156,9 +221,15 @@ export default function App() {
   };
 
   const currentPrompt = prompts[promptIndex] ?? '';
-  const atFirst = promptIndex === 0;
-  const atLast = promptIndex === prompts.length - 1;
   const onlyOne = prompts.length <= 1;
+
+  // Chronological order (oldest → newest) = takes as loaded; display newest first.
+  const takesNewestFirst = takes.slice().reverse();
+
+  const takeButtonLabel = (takeId) => {
+    if (playingTakeId !== takeId) return 'Play';
+    return isPaused ? 'Resume' : 'Pause';
+  };
 
   return (
     <div className="app">
@@ -207,48 +278,7 @@ export default function App() {
           </button>
         </div>
 
-        {/* Jump nav: First / Prev / pills / Next / Last */}
-        <div className="prompt-nav">
-          <button
-            className="btn-nav"
-            onClick={handleFirst}
-            disabled={isRecording || atFirst}
-            aria-label="Jump to first prompt"
-            title="First"
-          >
-            «
-          </button>
-          <button
-            className="btn-nav"
-            onClick={handlePrev}
-            disabled={isRecording}
-            aria-label="Previous prompt"
-          >
-            ‹ Prev
-          </button>
-          <span className="prompt-counter">
-            {prompts.length === 0 ? '0 / 0' : `${promptIndex + 1} / ${prompts.length}`}
-          </span>
-          <button
-            className="btn-nav"
-            onClick={handleNext}
-            disabled={isRecording}
-            aria-label="Next prompt"
-          >
-            Next ›
-          </button>
-          <button
-            className="btn-nav"
-            onClick={handleLast}
-            disabled={isRecording || atLast}
-            aria-label="Jump to last prompt"
-            title="Last"
-          >
-            »
-          </button>
-        </div>
-
-        {/* Pill strip — click any to jump directly */}
+        {/* Pill strip — one button per prompt */}
         {prompts.length > 1 && (
           <div className="pill-strip" ref={pillsRef}>
             {prompts.map((_, i) => (
@@ -281,33 +311,33 @@ export default function App() {
 
       {error && <p className="error">{error}</p>}
 
-      {/* Take list for current session */}
-      {takes.length > 0 && (
+      {/* Take list — all takes across sessions for the current prompt */}
+      {takesNewestFirst.length > 0 && (
         <div className="takes">
-          <h2 className="takes-heading">
-            Takes{currentSession ? ` — ${new Date().toLocaleDateString()}` : ''}
-          </h2>
+          <h2 className="takes-heading">Takes</h2>
           <div className="take-list">
-            {takes
-              .slice()
-              .reverse()
-              .map((take) => (
+            {takesNewestFirst.map((take, idx) => {
+              // Display number = chronological position (1 = oldest).
+              const displayNum = takes.length - idx;
+              const label = takeButtonLabel(take.id);
+              const isActive = playingTakeId === take.id;
+              return (
                 <div key={take.id} className="take-item">
                   <div className="take-info">
-                    <span className="take-num">Take {take.num}</span>
+                    <span className="take-num">Take {displayNum}</span>
                     <span className="take-meta">
                       {formatDuration(take.durationMs)} &middot; {take.sizeKB} KB
                     </span>
                   </div>
                   <button
-                    className="btn-play"
-                    onClick={() => handlePlayTake(take)}
-                    disabled={playingTakeId === take.id}
+                    className={`btn-play ${isActive && !isPaused ? 'is-playing' : ''}`}
+                    onClick={() => handleTakeButton(take)}
                   >
-                    {playingTakeId === take.id ? 'Playing...' : 'Play'}
+                    {label}
                   </button>
                 </div>
-              ))}
+              );
+            })}
           </div>
         </div>
       )}
